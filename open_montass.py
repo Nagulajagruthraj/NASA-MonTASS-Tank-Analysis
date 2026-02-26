@@ -59,7 +59,7 @@ class MonocoqueSection:
     def buckling_critical(self, load_type="axial"):
         """Axial buckling load per unit width using NASA SP-8007 knockdown."""
         if load_type == "axial":
-            # Knockdown factor gamma per NASA SP-8007 Rev 2 for isotropic cylinder.
+            # Knockdown factor gamma per NASA SP-8007 Rev 2, Eq. 15 (isotropic cylinder).
             gamma = 1.0 - 0.901 * (1.0 - np.exp(-(self.R / self.t) ** 0.16))
             N_cr = (
                 gamma
@@ -117,15 +117,16 @@ class OpenMonTASS:
         pandas.DataFrame with one row per section showing stresses, margins,
         and buckling loads.
         """
+        FACTOR_OF_SAFETY = 1.1  # Design factor of safety applied to yield strength.
         rows = []
         for sec in self.sections:
             radius = sec["R"]
             thickness = sec.get("t", 0)
             cone_angle = sec.get("alpha", 0)
 
-            # Minimum thickness required by pressure (with a 1.1 factor of safety).
+            # Minimum thickness required by pressure (with the design FoS).
             if P_int > 0:
-                t_req = (P_int * radius) / (2.0 * sec["mat"].sigma_y * 0.9)
+                t_req = (P_int * radius) / (2.0 * sec["mat"].sigma_y / FACTOR_OF_SAFETY)
             else:
                 t_req = thickness
 
@@ -140,9 +141,7 @@ class OpenMonTASS:
             MS_yield = (sec["mat"].sigma_y / von_mises) - 1.0
 
             # Axial buckling critical load per unit circumferential width.
-            buckling = MonocoqueSection(
-                sec["mat"], radius, thickness
-            ).buckling_critical()
+            buckling = shell.buckling_critical()
 
             rows.append(
                 {
